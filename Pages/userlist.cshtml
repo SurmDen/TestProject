@@ -1,0 +1,245 @@
+@page "/userlist"
+@model UserList
+
+@addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
+@using Microsoft.AspNetCore.Mvc.TagHelpers
+@using Microsoft.AspNetCore.Mvc.RazorPages;
+@using System.IO;
+@using TestProject.Models;
+@using Microsoft.AspNetCore.Http;
+@using System.Text.Json;
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="~/boostrap/css/bootstrap.css">
+    <title>User list</title>
+</head>
+<body>
+     @if(Model.IsError){
+        <div class="modal">
+            <div class="error-message">Error appeared when you loading file</div>
+            <button class="btn btn-primary">Close</button>
+        </div>
+        <script>
+            document.body.style.background = "rgba(0,0,0,0.50)" ;
+            document.body.style.opacity = 0.6;
+        </script>
+        }
+    <div class="container">
+        <div class="row">
+            <h2 style="text-align:center; margin-bottom:20px">User list</h2>
+        </div>
+        <div class="row">
+            <div class="col-11">
+                <table class="table table-stripped table-bordered table-success">
+                    <thead>
+                        <tr>
+                            <td>Index</td>
+                            <td>Id</td>
+                            <td>First Name</td>
+                            <td>Last Name</td>
+                            <td>Sex</td>
+                            <td>Email</td>
+                            <td>Phone</td>
+                            <td>Job</td>
+                            <td>Date of Birth</td>
+                        </tr>
+                        <tbody class="users">
+                            @foreach (User user in @Model.Users)
+                            {
+                                <tr>
+                                    <td>
+                                        @user.Index
+                                    </td>
+                                    <td>
+                                        @user.Id
+                                    </td>
+                                    <td>
+                                        @user.FirstName
+                                    </td>
+                                    <td>
+                                        @user.LastName
+                                    </td>
+                                    <td>
+                                        @user.Sex
+                                    </td>
+                                    <td>
+                                        @user.Email
+                                    </td>
+                                    <td>
+                                        @user.Phone
+                                    </td>            
+                                    <td>
+                                        @user.Job
+                                    </td>
+                                    <td class="date-sort">
+                                        @user.Date
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </thead>
+                </table>
+            </div>
+            <div class=col-1>
+                <button class="sort-btn btn btn-warning">Sort by date</button>
+            </div>
+        </div>
+        <div class="row mt-2 text-center">
+            <form asp-page="/userlist" method="post" enctype="multipart/form-data">
+                <div class="form-group">
+                    <input class="from-control" type="file" value="add data file" asp-for="Data">
+                </div>
+                <button class="btn btn-success" type="submit">Add file</button>
+            </form>
+        </div>
+       
+    </div>
+    <style>
+        .modal{
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            width: 420px;
+            height: 260px;
+            border: 2px solid rgb(25, 65, 72);
+            border-radius: 5px;
+            position: absolute;
+            background-color: white;
+            top:300px;
+        }
+
+        body{
+            transition: 0.3s ease;
+        }
+
+        .error-message{
+            color: red;
+            font-size: 1.5em;
+            margin: 10px;
+            word-break: break-all;
+        }
+    </style>
+    <script src="~/boostrap/js/bootstrap.bundle.js"></script>
+    <script src="~/boostrap/js/bootstrap.js"></script>
+    <script>
+
+        document.querySelector(".sort-btn").addEventListener("click", ()=>{
+            console.log("clicked");
+            let userStrings = document.querySelectorAll(".users tr");
+            for(let us of userStrings){
+
+                console.log(us);
+            }
+
+            let sortedUsers = Array.from(userStrings).sort((a,b)=> Date.parse(a.lastElementChild.textContent) > Date.parse(b.lastElementChild.textContent) ? 1 : -1);
+            let userContainer = document.querySelector(".users");
+            userContainer.innerHTML = "";
+        
+            for(let el of sortedUsers){
+                userContainer.appendChild(el);
+            }
+        })
+
+        let modal = document.querySelector(".modal");
+        let body = document.body;
+        let closer = document.querySelector(".modal button");
+
+        modal.style.left = body.clientWidth/2 - modal.clientWidth/2 + "px";
+
+        window.addEventListener("resize", ()=>{
+            modal.style.left = body.clientWidth/2 - modal.clientWidth/2 + "px";
+        });
+
+        closer.addEventListener("click", ()=>{
+            modal.style.display = "none";
+            body.style.backgroundColor = 'white';
+            document.body.style.opacity = 1;
+        });
+
+    </script>
+    
+</body>
+</html>
+
+@functions{
+
+    public class UserList : PageModel{
+
+        public UserList(IWebHostEnvironment env)
+        {
+            this.env = env;
+        }
+        private IWebHostEnvironment env;
+        
+        [BindProperty]
+        public IFormFile Data { get; set; }
+        
+        [BindProperty]
+        public bool IsError { get; set; } = false;
+        
+        
+
+        public List<User> Users { get; set; } = new List<User>();
+        
+        public IActionResult OnGet(){
+
+
+
+            return Page();
+        }
+
+        public async Task OnPostAsync(){
+
+            try
+            {
+            string fileName = Data.FileName;
+
+            string path = env.WebRootPath;
+            
+            using(FileStream fs = new FileStream($"{path}/{fileName}", FileMode.Create)){
+                await Data.CopyToAsync(fs);
+            }
+
+            string[] data = System.IO.File.ReadAllLines($"{path}/{fileName}");
+
+            for (var i = 0; i < data.Length; i++)
+            {
+                if(i == 0){
+                    continue;
+                }
+
+                string[] subData = data[i].Split(",");
+
+                Users.Add(new User(){
+
+                    Index = long.Parse(subData[0]),
+                    Id = subData[1],
+                    FirstName = subData[2],
+                    LastName = subData[3],
+                    Sex = subData[4],
+                    Email = subData[5],
+                    Phone = subData[6],
+                    Date = subData[7],
+                    Job = subData[8]
+
+                });
+            }
+
+            IsError = false;
+            }
+            catch
+            {
+                IsError = true;
+            }
+
+        }
+
+    }
+
+}
